@@ -1,0 +1,497 @@
+basePath: /api/v1
+definitions:
+  model.BatchRequest:
+    properties:
+      notifications:
+        items:
+          $ref: '#/definitions/model.CreateRequest'
+        maxItems: 1000
+        minItems: 1
+        type: array
+    required:
+    - notifications
+    type: object
+  model.BatchResponse:
+    properties:
+      batch_id:
+        type: string
+      notifications:
+        items:
+          $ref: '#/definitions/model.Notification'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.Channel:
+    enum:
+    - sms
+    - email
+    - push
+    type: string
+    x-enum-varnames:
+    - ChannelSMS
+    - ChannelEmail
+    - ChannelPush
+  model.CreateRequest:
+    properties:
+      channel:
+        $ref: '#/definitions/model.Channel'
+      content:
+        type: string
+      idempotency_key:
+        type: string
+      priority:
+        $ref: '#/definitions/model.Priority'
+      recipient:
+        type: string
+      scheduled_at:
+        type: string
+      subject:
+        type: string
+      template_id:
+        type: string
+      variables:
+        additionalProperties:
+          type: string
+        type: object
+    required:
+    - channel
+    - content
+    - priority
+    - recipient
+    type: object
+  model.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  model.HealthResponse:
+    properties:
+      db:
+        type: string
+      rabbitmq:
+        type: string
+      redis:
+        type: string
+      status:
+        type: string
+    type: object
+  model.MetricsResponse:
+    properties:
+      failure_rate:
+        type: number
+      notifications_failed_total:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      notifications_sent_total:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      processing_latency_ms:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      queue_depth:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      success_rate:
+        type: number
+    type: object
+  model.Notification:
+    properties:
+      attempts:
+        type: integer
+      batch_id:
+        type: string
+      channel:
+        $ref: '#/definitions/model.Channel'
+      content:
+        type: string
+      correlation_id:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      id:
+        type: string
+      idempotency_key:
+        type: string
+      last_attempt_at:
+        type: string
+      max_retries:
+        type: integer
+      priority:
+        $ref: '#/definitions/model.Priority'
+      provider_message_id:
+        type: string
+      recipient:
+        type: string
+      scheduled_at:
+        type: string
+      status:
+        $ref: '#/definitions/model.Status'
+      subject:
+        type: string
+      template_id:
+        type: string
+      updated_at:
+        type: string
+      variables:
+        type: string
+    type: object
+  model.PaginatedResponse:
+    properties:
+      data: {}
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  model.Priority:
+    enum:
+    - high
+    - normal
+    - low
+    type: string
+    x-enum-varnames:
+    - PriorityHigh
+    - PriorityNormal
+    - PriorityLow
+  model.Status:
+    enum:
+    - pending
+    - queued
+    - processing
+    - sent
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusQueued
+    - StatusProcessing
+    - StatusSent
+    - StatusFailed
+    - StatusCancelled
+  model.Template:
+    properties:
+      body:
+        type: string
+      channel:
+        $ref: '#/definitions/model.Channel'
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      subject:
+        type: string
+      updated_at:
+        type: string
+      variables:
+        description: JSON array of variable names
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Event-driven notification system for SMS, Email, and Push channels
+  title: Notification System API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Check the health of PostgreSQL, Redis, and RabbitMQ connections
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/model.HealthResponse'
+      summary: Health check
+      tags:
+      - observability
+  /metrics:
+    get:
+      description: Get notification system metrics including queue depth, success/failure
+        rates, and latency
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.MetricsResponse'
+      summary: Get system metrics
+      tags:
+      - observability
+  /notifications:
+    get:
+      description: List notifications with optional filters and pagination
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by channel
+        in: query
+        name: channel
+        type: string
+      - description: Filter by start date (RFC3339)
+        in: query
+        name: date_from
+        type: string
+      - description: Filter by end date (RFC3339)
+        in: query
+        name: date_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: List notifications
+      tags:
+      - notifications
+    post:
+      consumes:
+      - application/json
+      description: Create a new notification request
+      parameters:
+      - description: Correlation ID
+        in: header
+        name: X-Correlation-ID
+        type: string
+      - description: Notification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Notification'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Create notification
+      tags:
+      - notifications
+  /notifications/{id}:
+    get:
+      description: Retrieve a notification's details and status
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Notification'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Get notification by ID
+      tags:
+      - notifications
+  /notifications/{id}/cancel:
+    patch:
+      description: Cancel a pending or queued notification
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Cancel notification
+      tags:
+      - notifications
+  /notifications/batch:
+    post:
+      consumes:
+      - application/json
+      description: Create up to 1000 notifications in a single batch
+      parameters:
+      - description: Correlation ID
+        in: header
+        name: X-Correlation-ID
+        type: string
+      - description: Batch notification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BatchRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.BatchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Create batch notifications
+      tags:
+      - notifications
+  /notifications/batch/{batchId}:
+    get:
+      description: Retrieve all notifications in a batch by batch ID
+      parameters:
+      - description: Batch ID
+        in: path
+        name: batchId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Notification'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Get batch notifications
+      tags:
+      - notifications
+  /templates:
+    get:
+      description: List all notification templates
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Template'
+            type: array
+      summary: List templates
+      tags:
+      - templates
+    post:
+      consumes:
+      - application/json
+      description: Create a new notification template with variable substitution support
+      parameters:
+      - description: Template
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Template'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Template'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Create template
+      tags:
+      - templates
+  /templates/{id}:
+    get:
+      description: Retrieve a template's details
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Template'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Get template by ID
+      tags:
+      - templates
+swagger: "2.0"

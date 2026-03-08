@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test-build:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notification
+          POSTGRES_PASSWORD: notification_secret
+          POSTGRES_DB: notification_system_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U notification"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run staticcheck
+        run: staticcheck ./...
+
+      - name: Run tests
+        run: go test ./... -v -race -coverprofile=coverage.out
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: notification
+          DB_PASSWORD: notification_secret
+          DB_NAME: notification_system_test
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
+          RABBITMQ_HOST: localhost
+          RABBITMQ_PORT: "5672"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+      - name: Build API
+        run: go build -o bin/api ./cmd/api
+
+      - name: Build Worker
+        run: go build -o bin/worker ./cmd/worker
