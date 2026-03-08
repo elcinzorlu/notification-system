@@ -2,7 +2,7 @@
 
 An event-driven notification processing system built with Go. It processes and delivers messages through SMS, Email, and Push channels with high throughput, reliable delivery via RabbitMQ, and real-time status tracking.
 
-Built for [Insider One](https://one.useinsider.com/) to send millions of notifications daily with burst traffic handling, intelligent retry, and full delivery visibility.
+Built to send millions of notifications daily with burst traffic handling, intelligent retry, and full delivery visibility.
 
 
 ## Getting Started

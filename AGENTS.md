@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents working with this repository.
 
 ## What is Notification System?
 
-An event-driven notification processing system built with Go 1.23. It processes and delivers messages through SMS, Email, and Push channels with high throughput, reliable delivery via RabbitMQ, and real-time status tracking. Designed for Insider One to send millions of notifications daily with burst traffic handling, intelligent retry, and full delivery visibility.
+An event-driven notification processing system built with Go 1.23. It processes and delivers messages through SMS, Email, and Push channels with high throughput, reliable delivery via RabbitMQ, and real-time status tracking. Designed to send millions of notifications daily with burst traffic handling, intelligent retry, and full delivery visibility.
 
 ## Development Commands
 
